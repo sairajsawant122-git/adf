@@ -1,0 +1,60 @@
+{
+	"name": "DW_CARDS_TRANSACTIONS_REVERSALS",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "TransactionID",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "MerchantID",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "CardNumber",
+				"type": "char"
+			},
+			{
+				"name": "TransactionDate",
+				"type": "date"
+			},
+			{
+				"name": "AmountOG",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "AmountUSD",
+				"type": "decimal",
+				"precision": 18,
+				"scale": 2
+			},
+			{
+				"name": "Currency",
+				"type": "char"
+			},
+			{
+				"name": "AuthCode",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "LoadDate",
+				"type": "date"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "DW_CARDS_TRANSACTIONS_REVERSALS"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

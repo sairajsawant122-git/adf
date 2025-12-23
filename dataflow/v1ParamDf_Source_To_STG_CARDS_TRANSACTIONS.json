@@ -1,0 +1,109 @@
+{
+	"name": "v1ParamDf_Source_To_STG_CARDS_TRANSACTIONS",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "Raw_Data_Card_transactions",
+						"type": "DatasetReference"
+					},
+					"name": "DailyCardTransactions",
+					"description": "Card Transactions"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "odStgTrnNew",
+						"type": "DatasetReference"
+					},
+					"name": "DataSink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "select1"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     TranIDStrt as integer (0),",
+				"     TranIDEnd as integer (0),",
+				"     MerIDStrt as integer (0),",
+				"     MerIDEnd as integer (0),",
+				"     CardNumStrt as integer (0),",
+				"     CardNumEnd as integer (0),",
+				"     TrnDateStrt as integer (0),",
+				"     TrnDateEnd as integer (0),",
+				"     AmtStrt as integer (0),",
+				"     AmtEnd as integer (0),",
+				"     CurrStrt as integer (0),",
+				"     CurrEnd as integer (0),",
+				"     AuthCStrt as integer (0),",
+				"     AuthCEnd as integer (0)",
+				"}",
+				"source(output(",
+				"          Column_1 as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     limit: 100,",
+				"     ignoreNoFilesFound: false) ~> DailyCardTransactions",
+				"DailyCardTransactions derive({TransactionID } = substring(Column_1, $TranIDStrt,$TranIDEnd),",
+				"          {MerchantID } = substring(Column_1, $MerIDStrt,$MerIDEnd),",
+				"          CardNumber = substring(Column_1, $CardNumStrt,$CardNumEnd),",
+				"          {TransactionDate } = substring(Column_1, $TrnDateStrt,$TrnDateEnd),",
+				"          {Amount } = substring(Column_1, $AmtStrt,$AmtEnd),",
+				"          {Currency } = substring(Column_1, $CurrStrt,$CurrEnd),",
+				"          AuthCode = substring(Column_1, $AuthCStrt,$AuthCEnd),",
+				"          LoadDate = currentDate()) ~> derivedColumn1",
+				"derivedColumn1 select(mapColumn(",
+				"          {TransactionID },",
+				"          {MerchantID },",
+				"          CardNumber,",
+				"          {TransactionDate },",
+				"          {Amount },",
+				"          {Currency },",
+				"          AuthCode,",
+				"          LoadDate",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"select1 sink(allowSchemaDrift: true,",
+				"     validateSchema: true,",
+				"     input(",
+				"          TransactionID as string,",
+				"          MerchantID as string,",
+				"          CardNumber as string,",
+				"          TransactionDate as string,",
+				"          Amount as string,",
+				"          Currency as string,",
+				"          AuthCode as string,",
+				"          LoadDate as date",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     saveOrder: 1,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          TransactionID = {TransactionID },",
+				"          MerchantID = {MerchantID },",
+				"          CardNumber,",
+				"          TransactionDate = {TransactionDate },",
+				"          Amount = {Amount },",
+				"          Currency = {Currency },",
+				"          AuthCode,",
+				"          LoadDate",
+				"     )) ~> DataSink"
+			]
+		}
+	}
+}

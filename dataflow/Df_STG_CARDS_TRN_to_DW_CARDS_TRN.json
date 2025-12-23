@@ -1,0 +1,196 @@
+{
+	"name": "Df_STG_CARDS_TRN_to_DW_CARDS_TRN",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "STG_CARDS_TRANSACTIONS",
+						"type": "DatasetReference"
+					},
+					"name": "STG"
+				},
+				{
+					"dataset": {
+						"referenceName": "DW_CARD_TRANSACTIONS",
+						"type": "DatasetReference"
+					},
+					"name": "DWComp"
+				},
+				{
+					"dataset": {
+						"referenceName": "DW_CARDS_TRANSACTIONS_REVERSALS",
+						"type": "DatasetReference"
+					},
+					"name": "DwReversals"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "DW_CARD_TRANSACTIONS",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				},
+				{
+					"dataset": {
+						"referenceName": "DW_CARDS_TRANSACTIONS_REVERSALS",
+						"type": "DatasetReference"
+					},
+					"name": "sink2"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "cast1"
+				},
+				{
+					"name": "split1"
+				},
+				{
+					"name": "exists1"
+				},
+				{
+					"name": "exists2"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          TransactionID as string,",
+				"          MerchantID as string,",
+				"          CardNumber as string,",
+				"          TransactionDate as string,",
+				"          Amount as string,",
+				"          Currency as string,",
+				"          AuthCode as string,",
+				"          LoadDate as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     limit: 100,",
+				"     waterMarkColumn: 'LoadDate',",
+				"     isolationLevel: 'READ_COMMITTED',",
+				"     format: 'table',",
+				"     mode: 'read') ~> STG",
+				"source(output(",
+				"          TransactionID as long,",
+				"          MerchantID as integer,",
+				"          CardNumber as string,",
+				"          TransactionDate as date,",
+				"          AmountOG as integer,",
+				"          AmountUSD as decimal(18,2),",
+				"          Currency as string,",
+				"          AuthCode as integer,",
+				"          LoadDate as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> DWComp",
+				"source(output(",
+				"          TransactionID as long,",
+				"          MerchantID as integer,",
+				"          CardNumber as string,",
+				"          TransactionDate as date,",
+				"          AmountOG as integer,",
+				"          AmountUSD as decimal(18,2),",
+				"          Currency as string,",
+				"          AuthCode as integer,",
+				"          LoadDate as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> DwReversals",
+				"cast1 derive(TransactionDate = toDate(TransactionDate, 'yyyyMMdd'),",
+				"          AmountUSD = toDecimal(Amount/100,18,2),",
+				"          fAuthCode = iif(isNull(AuthCode) || (AuthCode == 0), 0,AuthCode )) ~> derivedColumn1",
+				"STG cast(output(",
+				"          TransactionID as long '000,000,000',",
+				"          MerchantID as integer '000',",
+				"          Amount as long '000,000,000',",
+				"          AuthCode as integer '000'",
+				"     ),",
+				"     errors: true) ~> cast1",
+				"derivedColumn1 split(Amount > 0,",
+				"     disjoint: false) ~> split1@(GreaterThanZero, LessThanZero)",
+				"split1@GreaterThanZero, DWComp exists(split1@GreaterThanZero@TransactionID == DWComp@TransactionID,",
+				"     negate:true,",
+				"     broadcast: 'auto')~> exists1",
+				"split1@LessThanZero, DwReversals exists(split1@LessThanZero@TransactionID == DwReversals@TransactionID,",
+				"     negate:true,",
+				"     broadcast: 'auto')~> exists2",
+				"exists1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          TransactionID as long,",
+				"          MerchantID as integer,",
+				"          CardNumber as string,",
+				"          TransactionDate as date,",
+				"          AmountOG as integer,",
+				"          AmountUSD as decimal(18,2),",
+				"          Currency as string,",
+				"          AuthCode as integer,",
+				"          LoadDate as date",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     postSQLs:['MERGE INTO dbo.SNAPSHOT_MERCHENT AS T\\nUSING (\\n(\\nSELECT \\n     MerchantID,\\n     Currency,\\n     DATENAME(MONTH, TransactionDate) AS MonthName,\\n     count(CardNumber) as TrnCount,\\n    sum(AmountUSD) as TotalAmount,\\n     CASE WHEN AuthCOde is null or AuthCOde = 0 then \\'REJECTED\\' else \\'SUCCESS\\' end AS STATUS\\nFrom [dbo].[DW_CARDS_TRANSACTIONS]\\ngroup by MerchantID,\\n     Currency,DATENAME(MONTH, TransactionDate),CASE WHEN AuthCOde is null or AuthCOde = 0 then \\'REJECTED\\' else \\'SUCCESS\\' end)\\n) AS S\\nON (T.MerchantID = S.MerchantID\\nAND T.Currency = S.Currency\\nAND T.MonthName =  S.MonthName\\nAND T.STATUS = S.STATUS)\\nWHEN MATCHED THEN\\n    UPDATE SET T.TrnCount = S.TrnCount, T.TotalAmount = S.TotalAmount\\nWHEN NOT MATCHED BY TARGET THEN\\n    INSERT (MerchantID,Currency, MonthName, TrnCount, TotalAmount, STATUS) VALUES (S.MerchantID,S.Currency, S.MonthName, S.TrnCount, S.TotalAmount, S.STATUS)\\nWHEN NOT MATCHED BY SOURCE THEN\\n    DELETE;'],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          TransactionID,",
+				"          MerchantID,",
+				"          CardNumber,",
+				"          TransactionDate,",
+				"          AmountOG = Amount,",
+				"          AmountUSD,",
+				"          Currency,",
+				"          AuthCode = fAuthCode,",
+				"          LoadDate",
+				"     )) ~> sink1",
+				"exists2 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          TransactionID as long,",
+				"          MerchantID as integer,",
+				"          CardNumber as string,",
+				"          TransactionDate as date,",
+				"          AmountOG as integer,",
+				"          AmountUSD as decimal(18,2),",
+				"          Currency as string,",
+				"          AuthCode as integer,",
+				"          LoadDate as date",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          TransactionID,",
+				"          MerchantID,",
+				"          CardNumber,",
+				"          TransactionDate,",
+				"          AmountOG = Amount,",
+				"          AmountUSD,",
+				"          Currency,",
+				"          AuthCode = fAuthCode,",
+				"          LoadDate",
+				"     )) ~> sink2"
+			]
+		}
+	}
+}

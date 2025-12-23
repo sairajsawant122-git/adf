@@ -1,0 +1,17 @@
+{
+	"name": "DestinationDataset_5lb",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "CradTransactions"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

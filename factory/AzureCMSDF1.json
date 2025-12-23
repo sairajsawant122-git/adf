@@ -1,0 +1,9 @@
+{
+	"name": "AzureCMSDF1",
+	"location": "eastus2",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "8845a206-86cf-44a7-a8a1-7ab736a694c7",
+		"tenantId": "7a12be15-f310-42d3-a9db-974a6aea61b7"
+	}
+}

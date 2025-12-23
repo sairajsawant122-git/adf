@@ -1,0 +1,134 @@
+{
+	"name": "Df_DIM_BRANDS_insrt",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "SCD_Data",
+						"type": "DatasetReference"
+					},
+					"name": "SCDData"
+				},
+				{
+					"dataset": {
+						"referenceName": "DIM_BRANDS",
+						"type": "DatasetReference"
+					},
+					"name": "DIMBRANDS"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "DIM_BRANDS",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "select1"
+				},
+				{
+					"name": "surrogateKey1"
+				},
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "select2"
+				},
+				{
+					"name": "exists1"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     MaxBrandsSkey as integer (100006)",
+				"}",
+				"source(output(",
+				"          ID as integer,",
+				"          BrandName as string,",
+				"          Price as integer,",
+				"          Date as date 'yyyy-MM-dd'",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> SCDData",
+				"source(output(",
+				"          odBrand_Skey as long,",
+				"          odID as integer,",
+				"          odBrandName as string,",
+				"          odPrice as integer,",
+				"          odEff_strt_date as date,",
+				"          odEff_End_date as date,",
+				"          odIsActive as boolean",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'select \\nBrand_Skey as odBrand_Skey,\\nID as odID,\\nBrandName as odBrandName,\\nPrice as odPrice,\\nEff_strt_date as odEff_strt_date,\\nEff_End_date as odEff_End_date,IsActive as odIsActive  from OD.DIM_BRANDS',",
+				"     format: 'query') ~> DIMBRANDS",
+				"exists1 select(mapColumn(",
+				"          ID,",
+				"          BrandName,",
+				"          Price",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"select1 keyGenerate(output(Brand_Skey as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> surrogateKey1",
+				"surrogateKey1 derive(Eff_strt_date = currentDate(),",
+				"          Eff_End_date = toDate('9999-12-31'),",
+				"          IsActive = 1,",
+				"          SkeyGen = Brand_Skey + $MaxBrandsSkey) ~> derivedColumn1",
+				"derivedColumn1 select(mapColumn(",
+				"          ID,",
+				"          BrandName,",
+				"          Price,",
+				"          Eff_strt_date,",
+				"          Eff_End_date,",
+				"          IsActive,",
+				"          SkeyGen",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select2",
+				"SCDData, DIMBRANDS exists(md5(ID,BrandName,Price) == md5(odID,odBrandName,odPrice),",
+				"     negate:true,",
+				"     broadcast: 'auto')~> exists1",
+				"select2 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          Brand_Skey as long,",
+				"          ID as integer,",
+				"          BrandName as string,",
+				"          Price as integer,",
+				"          Eff_strt_date as date,",
+				"          Eff_End_date as date,",
+				"          IsActive as boolean",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          Brand_Skey = SkeyGen,",
+				"          ID,",
+				"          BrandName,",
+				"          Price,",
+				"          Eff_strt_date,",
+				"          Eff_End_date,",
+				"          IsActive",
+				"     )) ~> sink1"
+			]
+		}
+	}
+}

@@ -1,0 +1,183 @@
+{
+	"name": "WildCardsFixedFileToSTG",
+	"properties": {
+		"activities": [
+			{
+				"name": "WildCards_Source_to_STG",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [
+					{
+						"activity": "Script1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "WildCards_Source_to_STG",
+						"type": "DataFlowReference"
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "Fine"
+				}
+			},
+			{
+				"name": "Script1",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "StartTime",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "AzureSqlDatabase",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": "select * from OD.LEN_STG_CONTROL where Column_name = 'TransactionID'"
+						},
+						{
+							"type": "Query",
+							"text": "select * from OD.LEN_STG_CONTROL where Column_name = 'MerchantID '"
+						},
+						{
+							"type": "Query",
+							"text": "select * from OD.LEN_STG_CONTROL where Column_name = 'CardNumber'"
+						},
+						{
+							"type": "Query",
+							"text": "select * from OD.LEN_STG_CONTROL where Column_name = 'TransactionDate'"
+						},
+						{
+							"type": "Query",
+							"text": "select * from OD.LEN_STG_CONTROL where Column_name = 'Amount'"
+						},
+						{
+							"type": "Query",
+							"text": "select * from OD.LEN_STG_CONTROL where Column_name = 'Currency'"
+						},
+						{
+							"type": "Query",
+							"text": "select * from OD.LEN_STG_CONTROL where Column_name = 'AuthCode'"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "StartTime",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "StartTime",
+					"value": {
+						"value": "@utcNow()",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "EndTime",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "WildCards_Source_to_STG",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "EndTime",
+					"value": {
+						"value": "@utcNow()",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "PiplineExecutionStatus",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "EndTime",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "AzureSqlDatabase",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": {
+								"value": "insert into PipelineRunStatus values('@{pipeline().Pipeline}','@{pipeline().RunId}','@{formatDateTime(pipeline().TriggerTime,'yyyy-MM-dd HH:mm:ss')}','@{pipeline().TriggerType}',datediff(second,'@{variables('StartTime')}','@{variables('EndTime')}'),datediff(minute,'@{variables('StartTime')}','@{variables('EndTime')}'))",
+								"type": "Expression"
+							}
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			}
+		],
+		"variables": {
+			"StartTime": {
+				"type": "String"
+			},
+			"EndTime": {
+				"type": "String"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-12-11T06:23:25Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

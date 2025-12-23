@@ -1,0 +1,27 @@
+{
+	"name": "AzureSqlTable2",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "FolderName",
+				"type": "varchar"
+			},
+			{
+				"name": "FileCounts",
+				"type": "int",
+				"precision": 10
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "FileCounts"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

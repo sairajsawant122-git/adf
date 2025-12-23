@@ -1,0 +1,50 @@
+{
+	"name": "odStgTrnNew",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "TransactionID",
+				"type": "varchar"
+			},
+			{
+				"name": "MerchantID",
+				"type": "varchar"
+			},
+			{
+				"name": "CardNumber",
+				"type": "varchar"
+			},
+			{
+				"name": "TransactionDate",
+				"type": "char"
+			},
+			{
+				"name": "Amount",
+				"type": "varchar"
+			},
+			{
+				"name": "Currency",
+				"type": "char"
+			},
+			{
+				"name": "AuthCode",
+				"type": "varchar"
+			},
+			{
+				"name": "LoadDate",
+				"type": "date"
+			}
+		],
+		"typeProperties": {
+			"schema": "OD",
+			"table": "STG_CARDS_TRANSACTIONS_NEW"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

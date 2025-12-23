@@ -1,0 +1,49 @@
+{
+	"name": "DIM_BRANDS",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "Brand_Skey",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "ID",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "BrandName",
+				"type": "varchar"
+			},
+			{
+				"name": "Price",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "Eff_strt_date",
+				"type": "date"
+			},
+			{
+				"name": "Eff_End_date",
+				"type": "date"
+			},
+			{
+				"name": "IsActive",
+				"type": "bit"
+			}
+		],
+		"typeProperties": {
+			"schema": "OD",
+			"table": "DIM_BRANDS"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

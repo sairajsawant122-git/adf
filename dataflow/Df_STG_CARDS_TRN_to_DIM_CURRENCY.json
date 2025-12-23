@@ -1,0 +1,112 @@
+{
+	"name": "Df_STG_CARDS_TRN_to_DIM_CURRENCY",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "STG_CARDS_TRANSACTIONS",
+						"type": "DatasetReference"
+					},
+					"name": "STG",
+					"description": "STG_CARDS_TRANSACTIONS"
+				},
+				{
+					"dataset": {
+						"referenceName": "DIM_CURRENCY",
+						"type": "DatasetReference"
+					},
+					"name": "DImcurrencyComp"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "DIM_CURRENCY",
+						"type": "DatasetReference"
+					},
+					"name": "dimcurrency",
+					"description": "DIM_CURRENCY"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "exists1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          TransactionID as string,",
+				"          MerchantID as string,",
+				"          CardNumber as string,",
+				"          TransactionDate as string,",
+				"          Amount as string,",
+				"          Currency as string,",
+				"          AuthCode as string,",
+				"          LoadDate as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     waterMarkColumn: 'LoadDate',",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'SELECT DISTINCT Currency AS Currency FROM dbo.STG_CARDS_TRANSACTIONS',",
+				"     format: 'query',",
+				"     mode: 'read') ~> STG",
+				"source(output(",
+				"          CurrencyCode as string,",
+				"          CurrencyName as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> DImcurrencyComp",
+				"exists1 derive(CurrencyName = iif(Currency == 'USD', 'US Dollar',\r",
+				"iif(Currency == 'EUR', 'Euro',\r",
+				"iif(Currency == 'JPY', 'Japanese Yen',\r",
+				"iif(Currency == 'GBP', 'British Pound',\r",
+				"iif(Currency == 'AUD', 'Australian Dollar',\r",
+				"iif(Currency == 'CAD', 'Canadian Dollar',\r",
+				"iif(Currency == 'CHF', 'Swiss Franc',\r",
+				"iif(Currency == 'CNY', 'Chinese Yuan',\r",
+				"iif(Currency == 'INR', 'Indian Rupee',\r",
+				"iif(Currency == 'BRL', 'Brazilian Real',\r",
+				"iif(Currency == 'ZAR', 'South African Rand',\r",
+				"iif(Currency == 'RUB', 'Russian Ruble',\r",
+				"iif(Currency == 'KRW', 'South Korean Won',\r",
+				"iif(Currency == 'SGD', 'Singapore Dollar',\r",
+				"iif(Currency == 'MXN', 'Mexican Peso',\r",
+				"iif(Currency == 'NZD', 'New Zealand Dollar',\r",
+				"iif(Currency == 'TRY', 'Turkish Lira',\r",
+				"iif(Currency == 'SEK', 'Swedish Krona',\r",
+				"iif(Currency == 'NOK', 'Norwegian Krone',\r",
+				"iif(Currency == 'AED', 'UAE Dirham',\r",
+				"'Unknown Currency'))))))))))))))))))))) ~> derivedColumn1",
+				"STG, DImcurrencyComp exists(Currency == CurrencyCode,",
+				"     negate:true,",
+				"     broadcast: 'auto')~> exists1",
+				"derivedColumn1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          CurrencyCode as string,",
+				"          CurrencyName as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          CurrencyCode = Currency,",
+				"          CurrencyName",
+				"     )) ~> dimcurrency"
+			]
+		}
+	}
+}

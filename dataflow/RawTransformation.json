@@ -1,0 +1,52 @@
+{
+	"name": "RawTransformation",
+	"properties": {
+		"type": "Flowlet",
+		"typeProperties": {
+			"sources": [],
+			"sinks": [],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "select1"
+				},
+				{
+					"name": "DailyCardTransactions"
+				},
+				{
+					"name": "DataSink"
+				}
+			],
+			"scriptLines": [
+				"input(output(",
+				"          Column_1 as string",
+				"     ),",
+				"     order: 0,",
+				"     allowSchemaDrift: true) ~> DailyCardTransactions",
+				"DailyCardTransactions derive({TransactionID } = substring(Column_1, 1,12),",
+				"          {MerchantID } = substring(Column_1, 13,10),",
+				"          CardNumber = substring(Column_1, 23,16),",
+				"          {TransactionDate } = substring(Column_1, 39,8),",
+				"          {Amount } = substring(Column_1, 47,10),",
+				"          {Currency } = substring(Column_1, 57,3),",
+				"          AuthCode = substring(Column_1, 60,6),",
+				"          LoadDate = currentDate()) ~> derivedColumn1",
+				"derivedColumn1 select(mapColumn(",
+				"          {TransactionID },",
+				"          {MerchantID },",
+				"          CardNumber,",
+				"          {TransactionDate },",
+				"          {Amount },",
+				"          {Currency },",
+				"          AuthCode,",
+				"          LoadDate",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"select1 output() ~> DataSink"
+			]
+		}
+	}
+}

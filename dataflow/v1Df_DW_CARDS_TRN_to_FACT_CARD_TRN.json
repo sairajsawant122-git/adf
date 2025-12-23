@@ -1,0 +1,170 @@
+{
+	"name": "v1Df_DW_CARDS_TRN_to_FACT_CARD_TRN",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "odDW_CARD_TRANSACTIONS",
+						"type": "DatasetReference"
+					},
+					"name": "DWCardTransactions",
+					"description": "Import data from DW_CARD_TRANSACTIONS"
+				},
+				{
+					"dataset": {
+						"referenceName": "odDIM_DATE",
+						"type": "DatasetReference"
+					},
+					"name": "DimDate"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "od_FACT_CARDS_TRANSACTIONS",
+						"type": "DatasetReference"
+					},
+					"name": "Fact"
+				}
+			],
+			"transformations": [
+				{
+					"name": "surrogateKey1"
+				},
+				{
+					"name": "isDeclined"
+				},
+				{
+					"name": "join1"
+				},
+				{
+					"name": "join2"
+				},
+				{
+					"name": "select1"
+				},
+				{
+					"name": "select2"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     MaxKey as integer",
+				"}",
+				"source(output(",
+				"          TransactionID as long,",
+				"          MerchantID as integer,",
+				"          CardNumber as string,",
+				"          TransactionDate as date,",
+				"          AmountOG as integer,",
+				"          AmountUSD as decimal(18,2),",
+				"          Currency as string,",
+				"          AuthCode as integer,",
+				"          LoadDate as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     waterMarkColumn: 'LoadDate',",
+				"     isolationLevel: 'READ_COMMITTED',",
+				"     query: 'SELECT \\n    s.TransactionID,\\n    s.MerchantID,\\n    s.CardNumber,\\n    s.TransactionDate,\\n    s.AmountOG,\\n    s.AmountUSD,\\n    s.Currency,\\n    s.AuthCode,\\n    s.LoadDate\\nFROM OD.DW_CARDS_TRANSACTIONS s\\nLEFT JOIN OD.FACT_CARDS_TRANSACTIONS t \\n    ON s.TransactionID = t.TransactionID\\nWHERE t.TransactionID IS NULL',",
+				"     format: 'query',",
+				"     mode: 'read') ~> DWCardTransactions",
+				"source(output(",
+				"          DateID as integer,",
+				"          Date as date,",
+				"          Month as integer,",
+				"          Day as string,",
+				"          DayNum as integer,",
+				"          WeekNo as integer,",
+				"          Year as integer",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> DimDate",
+				"select2 keyGenerate(output(TransactionKey as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> surrogateKey1",
+				"surrogateKey1 derive(IsDeclined = iif(isNull(AuthCode) || AuthCode == 0, 1, 0),",
+				"          TransactionKeyInc = TransactionKey+$MaxKey) ~> isDeclined",
+				"select1, DimDate join(TransactionDate == Date,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> join1",
+				"DWCardTransactions, DimDate join(LoadDate == Date,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> join2",
+				"join2 select(mapColumn(",
+				"          TransactionID,",
+				"          MerchantID,",
+				"          CardNumber,",
+				"          TransactionDate,",
+				"          AmountOG,",
+				"          AmountUSD,",
+				"          Currency,",
+				"          AuthCode,",
+				"          LoadDate,",
+				"          LoadDateKey = DateID",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"join1 select(mapColumn(",
+				"          TransactionID,",
+				"          MerchantID,",
+				"          CardNumber,",
+				"          TransactionDate,",
+				"          AmountOG,",
+				"          AmountUSD,",
+				"          Currency,",
+				"          AuthCode,",
+				"          LoadDate,",
+				"          LoadDateKey,",
+				"          TrnDateKey = DateID",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select2",
+				"isDeclined sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          TransactionKey as long,",
+				"          TransactionID as long,",
+				"          MerchantID as integer,",
+				"          CardNumber as string,",
+				"          TrnDateKey as integer,",
+				"          CurrencyCode as string,",
+				"          AmountUSD as decimal(18,2),",
+				"          AmountOG as integer,",
+				"          IsDeclined as boolean,",
+				"          AuthCode as integer,",
+				"          LoadDateKey as integer",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          TransactionKey = TransactionKeyInc,",
+				"          TransactionID,",
+				"          MerchantID,",
+				"          CardNumber,",
+				"          TrnDateKey,",
+				"          CurrencyCode = Currency,",
+				"          AmountUSD,",
+				"          AmountOG,",
+				"          IsDeclined,",
+				"          AuthCode,",
+				"          LoadDateKey",
+				"     )) ~> Fact"
+			]
+		}
+	}
+}

@@ -1,0 +1,92 @@
+{
+	"name": "Df_Source_To_STG_CARDS_TRANSACTIONS",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "Raw_Data_Card_transactions",
+						"type": "DatasetReference"
+					},
+					"name": "DailyCardTransactions",
+					"description": "Card Transactions"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "STG_CARDS_TRANSACTIONS",
+						"type": "DatasetReference"
+					},
+					"name": "DataSink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "select1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          Column_1 as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     limit: 100,",
+				"     ignoreNoFilesFound: false) ~> DailyCardTransactions",
+				"DailyCardTransactions derive({TransactionID } = substring(Column_1, 1,12),",
+				"          {MerchantID } = substring(Column_1, 13,10),",
+				"          CardNumber = substring(Column_1, 23,16),",
+				"          {TransactionDate } = substring(Column_1, 39,8),",
+				"          {Amount } = substring(Column_1, 47,10),",
+				"          {Currency } = substring(Column_1, 57,3),",
+				"          AuthCode = substring(Column_1, 60,6),",
+				"          LoadDate = currentDate()) ~> derivedColumn1",
+				"derivedColumn1 select(mapColumn(",
+				"          {TransactionID },",
+				"          {MerchantID },",
+				"          CardNumber,",
+				"          {TransactionDate },",
+				"          {Amount },",
+				"          {Currency },",
+				"          AuthCode,",
+				"          LoadDate",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"select1 sink(allowSchemaDrift: true,",
+				"     validateSchema: true,",
+				"     input(",
+				"          TransactionID as string,",
+				"          MerchantID as string,",
+				"          CardNumber as string,",
+				"          TransactionDate as string,",
+				"          Amount as string,",
+				"          Currency as string,",
+				"          AuthCode as string,",
+				"          LoadDate as date",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          TransactionID = {TransactionID },",
+				"          MerchantID = {MerchantID },",
+				"          CardNumber,",
+				"          TransactionDate = {TransactionDate },",
+				"          Amount = {Amount },",
+				"          Currency = {Currency },",
+				"          AuthCode,",
+				"          LoadDate",
+				"     )) ~> DataSink"
+			]
+		}
+	}
+}

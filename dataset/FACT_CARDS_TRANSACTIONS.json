@@ -1,0 +1,71 @@
+{
+	"name": "FACT_CARDS_TRANSACTIONS",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "TransactionKey",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "TransactionID",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "MerchantID",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "CardNumber",
+				"type": "varchar"
+			},
+			{
+				"name": "TrnDateKey",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "CurrencyCode",
+				"type": "char"
+			},
+			{
+				"name": "AmountUSD",
+				"type": "decimal",
+				"precision": 18,
+				"scale": 2
+			},
+			{
+				"name": "AmountOG",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "IsDeclined",
+				"type": "bit"
+			},
+			{
+				"name": "AuthCode",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "LoadDateKey",
+				"type": "int",
+				"precision": 10
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "FACT_CARDS_TRANSACTIONS"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

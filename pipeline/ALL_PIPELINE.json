@@ -1,0 +1,95 @@
+{
+	"name": "ALL_PIPELINE",
+	"properties": {
+		"activities": [
+			{
+				"name": "FixedFIleToSTG",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "PIP_Source_to_STG_CARDS_TRN",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "StgToDW",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "FixedFIleToSTG",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "PIP_STG_CARDS_to_DW_CARDS_TRN",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "StgToDimCurrency",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "StgToDW",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "PIP_STG_CARDS_TRN_to_DIM_CURRENCY",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "FACT_CARDS_TRANSACTIONS",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "StgToDimCurrency",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "PIP_DW_CARDS_TRN_to_FACT_CARDS_TRN",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2025-12-11T06:23:26Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

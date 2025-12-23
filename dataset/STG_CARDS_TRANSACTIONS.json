@@ -1,0 +1,50 @@
+{
+	"name": "STG_CARDS_TRANSACTIONS",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "TransactionID",
+				"type": "varchar"
+			},
+			{
+				"name": "MerchantID",
+				"type": "varchar"
+			},
+			{
+				"name": "CardNumber",
+				"type": "varchar"
+			},
+			{
+				"name": "TransactionDate",
+				"type": "char"
+			},
+			{
+				"name": "Amount",
+				"type": "varchar"
+			},
+			{
+				"name": "Currency",
+				"type": "char"
+			},
+			{
+				"name": "AuthCode",
+				"type": "varchar"
+			},
+			{
+				"name": "LoadDate",
+				"type": "date"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "STG_CARDS_TRANSACTIONS"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

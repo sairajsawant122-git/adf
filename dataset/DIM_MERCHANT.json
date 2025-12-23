@@ -1,0 +1,34 @@
+{
+	"name": "DIM_MERCHANT",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "MerchantID",
+				"type": "varchar"
+			},
+			{
+				"name": "MerchantName",
+				"type": "varchar"
+			},
+			{
+				"name": "Location",
+				"type": "varchar"
+			},
+			{
+				"name": "Country",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "DIM_MERCHANT"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

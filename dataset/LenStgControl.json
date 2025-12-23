@@ -1,0 +1,32 @@
+{
+	"name": "LenStgControl",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "column_name",
+				"type": "varchar"
+			},
+			{
+				"name": "str_len",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "end_len",
+				"type": "int",
+				"precision": 10
+			}
+		],
+		"typeProperties": {
+			"schema": "OD",
+			"table": "LEN_STG_CONTROL"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

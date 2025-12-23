@@ -1,0 +1,206 @@
+{
+	"name": "Df_DIM_BRANDS",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "SCD_Data",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				},
+				{
+					"dataset": {
+						"referenceName": "DIM_BRANDS",
+						"type": "DatasetReference"
+					},
+					"name": "DIMBRANDS"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "DIM_BRANDS",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				},
+				{
+					"dataset": {
+						"referenceName": "DIM_BRANDS",
+						"type": "DatasetReference"
+					},
+					"name": "sink2"
+				}
+			],
+			"transformations": [
+				{
+					"name": "join1"
+				},
+				{
+					"name": "surrogateKey1"
+				},
+				{
+					"name": "select1"
+				},
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "select2"
+				},
+				{
+					"name": "split1"
+				},
+				{
+					"name": "select3"
+				},
+				{
+					"name": "alterRow1"
+				},
+				{
+					"name": "derivedColumn2"
+				},
+				{
+					"name": "filter1"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     MaxBrandsSkey as integer (100000)",
+				"}",
+				"source(output(",
+				"          ID as integer,",
+				"          BrandName as string,",
+				"          Price as integer,",
+				"          Date as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> source1",
+				"source(output(",
+				"          odBrand_Skey as long,",
+				"          odID as integer,",
+				"          odBrandName as string,",
+				"          odPrice as integer,",
+				"          odEff_strt_date as date,",
+				"          odEff_End_date as date,",
+				"          odIsActive as boolean",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'select \\nBrand_Skey as odBrand_Skey,\\nID as odID,\\nBrandName as odBrandName,\\nPrice as odPrice,\\nEff_strt_date as odEff_strt_date,\\nEff_End_date as odEff_End_date,IsActive as odIsActive  from OD.DIM_BRANDS',",
+				"     format: 'query') ~> DIMBRANDS",
+				"source1, DIMBRANDS join(ID == odID,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> join1",
+				"select1 keyGenerate(output(Brand_Skey as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> surrogateKey1",
+				"split1@Insert select(mapColumn(",
+				"          ID,",
+				"          BrandName,",
+				"          Price",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"surrogateKey1 derive(Eff_strt_date = currentDate(),",
+				"          Eff_End_date = toDate('9999-12-31'),",
+				"          IsActive = 1,",
+				"          SkeyGen = Brand_Skey + $MaxBrandsSkey) ~> derivedColumn1",
+				"derivedColumn1 select(mapColumn(",
+				"          ID,",
+				"          BrandName,",
+				"          Price,",
+				"          Eff_strt_date,",
+				"          Eff_End_date,",
+				"          IsActive,",
+				"          SkeyGen",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select2",
+				"join1 split(isNull(odID),",
+				"     disjoint: false) ~> split1@(Insert, Update)",
+				"filter1 select(mapColumn(",
+				"          odBrand_Skey,",
+				"          odID,",
+				"          odBrandName,",
+				"          odPrice,",
+				"          odEff_strt_date,",
+				"          odEff_End_date,",
+				"          odIsActive",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select3",
+				"derivedColumn2 alterRow(updateIf(1==1)) ~> alterRow1",
+				"select3 derive(odIsActive = 0,",
+				"          odEff_End_date = currentDate()) ~> derivedColumn2",
+				"split1@Update filter(ID == odID && (BrandName != odBrandName || Price != odPrice)) ~> filter1",
+				"select2 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          Brand_Skey as long,",
+				"          ID as integer,",
+				"          BrandName as string,",
+				"          Price as integer,",
+				"          Eff_strt_date as date,",
+				"          Eff_End_date as date,",
+				"          IsActive as boolean",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 2,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          ID,",
+				"          BrandName,",
+				"          Price,",
+				"          Eff_strt_date,",
+				"          Eff_End_date,",
+				"          IsActive,",
+				"          Brand_Skey = SkeyGen",
+				"     )) ~> sink1",
+				"alterRow1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          Brand_Skey as long,",
+				"          ID as integer,",
+				"          BrandName as string,",
+				"          Price as integer,",
+				"          Eff_strt_date as date,",
+				"          Eff_End_date as date,",
+				"          IsActive as boolean",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:true,",
+				"     upsertable:false,",
+				"     keys:['Brand_Skey'],",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 1,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          Brand_Skey = odBrand_Skey,",
+				"          ID = odID,",
+				"          BrandName = odBrandName,",
+				"          Price = odPrice,",
+				"          Eff_strt_date = odEff_strt_date,",
+				"          Eff_End_date = odEff_End_date,",
+				"          IsActive = odIsActive",
+				"     )) ~> sink2"
+			]
+		}
+	}
+}
