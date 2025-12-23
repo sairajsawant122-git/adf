@@ -1,0 +1,2978 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "AzureCMSDF1"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/Pip_CopyLatestFiles1')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get Metadata1",
+						"type": "GetMetadata",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "allFolders",
+								"type": "DatasetReference",
+								"parameters": {
+									"FolderName": {
+										"value": "@pipeline().parameters.FolderName",
+										"type": "Expression"
+									}
+								}
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "AzureBlobStorageReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "DelimitedTextReadSettings"
+							}
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Get Metadata1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Get Metadata1').output.childItems",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Get Metadata2",
+									"type": "GetMetadata",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataset": {
+											"referenceName": "AllParam",
+											"type": "DatasetReference",
+											"parameters": {
+												"FolderName": {
+													"value": "@pipeline().parameters.FolderName",
+													"type": "Expression"
+												},
+												"FileName": {
+													"value": "@item().name",
+													"type": "Expression"
+												}
+											}
+										},
+										"fieldList": [
+											"itemName",
+											"lastModified"
+										],
+										"storeSettings": {
+											"type": "AzureBlobStorageReadSettings",
+											"recursive": true,
+											"enablePartitionDiscovery": false
+										},
+										"formatSettings": {
+											"type": "DelimitedTextReadSettings"
+										}
+									}
+								},
+								{
+									"name": "If Condition1",
+									"type": "IfCondition",
+									"dependsOn": [
+										{
+											"activity": "Get Metadata2",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@greater(activity('Get Metadata2').output.lastModified, variables('RefDateTime'))",
+											"type": "Expression"
+										},
+										"ifTrueActivities": [
+											{
+												"name": "Set variable1",
+												"type": "SetVariable",
+												"dependsOn": [],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "RefDateTime",
+													"value": {
+														"value": "@activity('Get Metadata2').output.lastModified",
+														"type": "Expression"
+													}
+												}
+											},
+											{
+												"name": "Set variable2",
+												"type": "SetVariable",
+												"dependsOn": [
+													{
+														"activity": "Set variable1",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "LatestFile",
+													"value": {
+														"value": "@activity('Get Metadata2').output.itemName",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "Copy data1",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "ForEach1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "DelimitedTextSink",
+								"storeSettings": {
+									"type": "AzureBlobStorageWriteSettings"
+								},
+								"formatSettings": {
+									"type": "DelimitedTextWriteSettings",
+									"quoteAllText": true,
+									"fileExtension": ".txt"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "AllParam",
+								"type": "DatasetReference",
+								"parameters": {
+									"FolderName": {
+										"value": "@pipeline().parameters.FolderName",
+										"type": "Expression"
+									},
+									"FileName": {
+										"value": "@variables('LatestFile')",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "cpyAllParamDestination",
+								"type": "DatasetReference",
+								"parameters": {
+									"DestinationFile": {
+										"value": "@variables('LatestFile')",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"FolderName": {
+						"type": "string"
+					}
+				},
+				"variables": {
+					"LatestFile": {
+						"type": "String"
+					},
+					"RefDateTime": {
+						"type": "String",
+						"defaultValue": "1900-01-01 00:00:00"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-12-11T06:23:24Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/StoringFileNamesSQL')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get Metadata1",
+						"type": "GetMetadata",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DelimitedText1",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "AzureBlobStorageReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "DelimitedTextReadSettings"
+							}
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Get Metadata1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Get Metadata1').output.childItems",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Get Metadata2",
+									"type": "GetMetadata",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataset": {
+											"referenceName": "ParmAllFiles",
+											"type": "DatasetReference",
+											"parameters": {
+												"FileName": {
+													"value": "@item().name",
+													"type": "Expression"
+												}
+											}
+										},
+										"fieldList": [
+											"childItems"
+										],
+										"storeSettings": {
+											"type": "AzureBlobStorageReadSettings",
+											"recursive": true,
+											"enablePartitionDiscovery": false
+										},
+										"formatSettings": {
+											"type": "DelimitedTextReadSettings"
+										}
+									}
+								},
+								{
+									"name": "Filter1",
+									"type": "Filter",
+									"dependsOn": [
+										{
+											"activity": "Get Metadata2",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"items": {
+											"value": "@activity('Get Metadata2').output.childItems",
+											"type": "Expression"
+										},
+										"condition": {
+											"value": "@not(empty(item().name))",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "Script1",
+									"type": "Script",
+									"dependsOn": [
+										{
+											"activity": "Filter1",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"linkedServiceName": {
+										"referenceName": "AzureSqlDatabase",
+										"type": "LinkedServiceReference"
+									},
+									"typeProperties": {
+										"scripts": [
+											{
+												"type": "NonQuery",
+												"text": {
+													"value": "insert into dbo.FileCounts select '@{item().name}',@{int(activity('Filter1').output.ItemsCount)};",
+													"type": "Expression"
+												}
+											}
+										],
+										"scriptBlockExecutionTimeout": "02:00:00"
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-12-11T06:23:24Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Df_DIM_BRANDS')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "SCD_Data",
+								"type": "DatasetReference"
+							},
+							"name": "source1"
+						},
+						{
+							"dataset": {
+								"referenceName": "DIM_BRANDS",
+								"type": "DatasetReference"
+							},
+							"name": "DIMBRANDS"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "DIM_BRANDS",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						},
+						{
+							"dataset": {
+								"referenceName": "DIM_BRANDS",
+								"type": "DatasetReference"
+							},
+							"name": "sink2"
+						}
+					],
+					"transformations": [
+						{
+							"name": "join1"
+						},
+						{
+							"name": "surrogateKey1"
+						},
+						{
+							"name": "select1"
+						},
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "select2"
+						},
+						{
+							"name": "split1"
+						},
+						{
+							"name": "select3"
+						},
+						{
+							"name": "alterRow1"
+						},
+						{
+							"name": "derivedColumn2"
+						},
+						{
+							"name": "filter1"
+						}
+					],
+					"scriptLines": [
+						"parameters{",
+						"     MaxBrandsSkey as integer (100000)",
+						"}",
+						"source(output(",
+						"          ID as integer,",
+						"          BrandName as string,",
+						"          Price as integer,",
+						"          Date as date",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false) ~> source1",
+						"source(output(",
+						"          odBrand_Skey as long,",
+						"          odID as integer,",
+						"          odBrandName as string,",
+						"          odPrice as integer,",
+						"          odEff_strt_date as date,",
+						"          odEff_End_date as date,",
+						"          odIsActive as boolean",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     query: 'select \\nBrand_Skey as odBrand_Skey,\\nID as odID,\\nBrandName as odBrandName,\\nPrice as odPrice,\\nEff_strt_date as odEff_strt_date,\\nEff_End_date as odEff_End_date,IsActive as odIsActive  from OD.DIM_BRANDS',",
+						"     format: 'query') ~> DIMBRANDS",
+						"source1, DIMBRANDS join(ID == odID,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join1",
+						"select1 keyGenerate(output(Brand_Skey as long),",
+						"     startAt: 1L,",
+						"     stepValue: 1L) ~> surrogateKey1",
+						"split1@Insert select(mapColumn(",
+						"          ID,",
+						"          BrandName,",
+						"          Price",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select1",
+						"surrogateKey1 derive(Eff_strt_date = currentDate(),",
+						"          Eff_End_date = toDate('9999-12-31'),",
+						"          IsActive = 1,",
+						"          SkeyGen = Brand_Skey + $MaxBrandsSkey) ~> derivedColumn1",
+						"derivedColumn1 select(mapColumn(",
+						"          ID,",
+						"          BrandName,",
+						"          Price,",
+						"          Eff_strt_date,",
+						"          Eff_End_date,",
+						"          IsActive,",
+						"          SkeyGen",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select2",
+						"join1 split(isNull(odID),",
+						"     disjoint: false) ~> split1@(Insert, Update)",
+						"filter1 select(mapColumn(",
+						"          odBrand_Skey,",
+						"          odID,",
+						"          odBrandName,",
+						"          odPrice,",
+						"          odEff_strt_date,",
+						"          odEff_End_date,",
+						"          odIsActive",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select3",
+						"derivedColumn2 alterRow(updateIf(1==1)) ~> alterRow1",
+						"select3 derive(odIsActive = 0,",
+						"          odEff_End_date = currentDate()) ~> derivedColumn2",
+						"split1@Update filter(ID == odID && (BrandName != odBrandName || Price != odPrice)) ~> filter1",
+						"select2 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          Brand_Skey as long,",
+						"          ID as integer,",
+						"          BrandName as string,",
+						"          Price as integer,",
+						"          Eff_strt_date as date,",
+						"          Eff_End_date as date,",
+						"          IsActive as boolean",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     saveOrder: 2,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          ID,",
+						"          BrandName,",
+						"          Price,",
+						"          Eff_strt_date,",
+						"          Eff_End_date,",
+						"          IsActive,",
+						"          Brand_Skey = SkeyGen",
+						"     )) ~> sink1",
+						"alterRow1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          Brand_Skey as long,",
+						"          ID as integer,",
+						"          BrandName as string,",
+						"          Price as integer,",
+						"          Eff_strt_date as date,",
+						"          Eff_End_date as date,",
+						"          IsActive as boolean",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:true,",
+						"     upsertable:false,",
+						"     keys:['Brand_Skey'],",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     saveOrder: 1,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          Brand_Skey = odBrand_Skey,",
+						"          ID = odID,",
+						"          BrandName = odBrandName,",
+						"          Price = odPrice,",
+						"          Eff_strt_date = odEff_strt_date,",
+						"          Eff_End_date = odEff_End_date,",
+						"          IsActive = odIsActive",
+						"     )) ~> sink2"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Df_DIM_BRANDS_insrt')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "SCD_Data",
+								"type": "DatasetReference"
+							},
+							"name": "SCDData"
+						},
+						{
+							"dataset": {
+								"referenceName": "DIM_BRANDS",
+								"type": "DatasetReference"
+							},
+							"name": "DIMBRANDS"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "DIM_BRANDS",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "select1"
+						},
+						{
+							"name": "surrogateKey1"
+						},
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "select2"
+						},
+						{
+							"name": "exists1"
+						}
+					],
+					"scriptLines": [
+						"parameters{",
+						"     MaxBrandsSkey as integer (100006)",
+						"}",
+						"source(output(",
+						"          ID as integer,",
+						"          BrandName as string,",
+						"          Price as integer,",
+						"          Date as date 'yyyy-MM-dd'",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false) ~> SCDData",
+						"source(output(",
+						"          odBrand_Skey as long,",
+						"          odID as integer,",
+						"          odBrandName as string,",
+						"          odPrice as integer,",
+						"          odEff_strt_date as date,",
+						"          odEff_End_date as date,",
+						"          odIsActive as boolean",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     query: 'select \\nBrand_Skey as odBrand_Skey,\\nID as odID,\\nBrandName as odBrandName,\\nPrice as odPrice,\\nEff_strt_date as odEff_strt_date,\\nEff_End_date as odEff_End_date,IsActive as odIsActive  from OD.DIM_BRANDS',",
+						"     format: 'query') ~> DIMBRANDS",
+						"exists1 select(mapColumn(",
+						"          ID,",
+						"          BrandName,",
+						"          Price",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select1",
+						"select1 keyGenerate(output(Brand_Skey as long),",
+						"     startAt: 1L,",
+						"     stepValue: 1L) ~> surrogateKey1",
+						"surrogateKey1 derive(Eff_strt_date = currentDate(),",
+						"          Eff_End_date = toDate('9999-12-31'),",
+						"          IsActive = 1,",
+						"          SkeyGen = Brand_Skey + $MaxBrandsSkey) ~> derivedColumn1",
+						"derivedColumn1 select(mapColumn(",
+						"          ID,",
+						"          BrandName,",
+						"          Price,",
+						"          Eff_strt_date,",
+						"          Eff_End_date,",
+						"          IsActive,",
+						"          SkeyGen",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select2",
+						"SCDData, DIMBRANDS exists(md5(ID,BrandName,Price) == md5(odID,odBrandName,odPrice),",
+						"     negate:true,",
+						"     broadcast: 'auto')~> exists1",
+						"select2 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          Brand_Skey as long,",
+						"          ID as integer,",
+						"          BrandName as string,",
+						"          Price as integer,",
+						"          Eff_strt_date as date,",
+						"          Eff_End_date as date,",
+						"          IsActive as boolean",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          Brand_Skey = SkeyGen,",
+						"          ID,",
+						"          BrandName,",
+						"          Price,",
+						"          Eff_strt_date,",
+						"          Eff_End_date,",
+						"          IsActive",
+						"     )) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Df_DW_CARDS_TRN_to_FACT_CARD_TRN')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "DW_CARD_TRANSACTIONS",
+								"type": "DatasetReference"
+							},
+							"name": "DWCardTransactions",
+							"description": "Import data from DW_CARD_TRANSACTIONS"
+						},
+						{
+							"dataset": {
+								"referenceName": "DimDate",
+								"type": "DatasetReference"
+							},
+							"name": "DimDate"
+						},
+						{
+							"dataset": {
+								"referenceName": "FACT_MAX_KEY",
+								"type": "DatasetReference"
+							},
+							"name": "FctMaxkey"
+						},
+						{
+							"dataset": {
+								"referenceName": "FACT_CARDS_TRANSACTIONS",
+								"type": "DatasetReference"
+							},
+							"name": "CompFact"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "FACT_CARDS_TRANSACTIONS",
+								"type": "DatasetReference"
+							},
+							"name": "Fact"
+						}
+					],
+					"transformations": [
+						{
+							"name": "surrogateKey1"
+						},
+						{
+							"name": "isDeclined"
+						},
+						{
+							"name": "join1"
+						},
+						{
+							"name": "join2"
+						},
+						{
+							"name": "select1"
+						},
+						{
+							"name": "select2"
+						},
+						{
+							"name": "join3"
+						},
+						{
+							"name": "exists1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          TransactionID as long,",
+						"          MerchantID as integer,",
+						"          CardNumber as string,",
+						"          TransactionDate as date,",
+						"          AmountOG as integer,",
+						"          AmountUSD as decimal(18,2),",
+						"          Currency as string,",
+						"          AuthCode as integer,",
+						"          LoadDate as date",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     waterMarkColumn: 'LoadDate',",
+						"     isolationLevel: 'READ_COMMITTED',",
+						"     format: 'table',",
+						"     mode: 'read') ~> DWCardTransactions",
+						"source(output(",
+						"          DateID as integer,",
+						"          Date as date,",
+						"          Month as integer,",
+						"          Day as string,",
+						"          DayNum as integer,",
+						"          WeekNo as integer,",
+						"          Year as integer",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     format: 'table') ~> DimDate",
+						"source(output(",
+						"          TransactionKey as long,",
+						"          TransactionID as long,",
+						"          MerchantID as integer,",
+						"          CardNumber as string,",
+						"          TrnDateKey as integer,",
+						"          CurrencyCode as string,",
+						"          AmountUSD as decimal(18,2),",
+						"          AmountOG as integer,",
+						"          IsDeclined as boolean,",
+						"          AuthCode as integer,",
+						"          LoadDateKey as integer",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     query: 'SELECT isnull(MAX(TransactionKey),1000000000) AS TransactionKey from dbo.FACT_CARDS_TRANSACTIONS',",
+						"     format: 'query') ~> FctMaxkey",
+						"source(output(",
+						"          TransactionKey as long,",
+						"          TransactionID as long,",
+						"          MerchantID as integer,",
+						"          CardNumber as string,",
+						"          TrnDateKey as integer,",
+						"          CurrencyCode as string,",
+						"          AmountUSD as decimal(18,2),",
+						"          AmountOG as integer,",
+						"          IsDeclined as boolean,",
+						"          AuthCode as integer,",
+						"          LoadDateKey as integer",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     format: 'table') ~> CompFact",
+						"select2 keyGenerate(output(TransactionKey as long),",
+						"     startAt: 1L,",
+						"     stepValue: 1L) ~> surrogateKey1",
+						"join3 derive(IsDeclined = iif(isNull(select2@AuthCode) || select2@AuthCode == 0, 1, 0),",
+						"          TransactionKeyinc = surrogateKey1@TransactionKey+FctMaxkey@TransactionKey) ~> isDeclined",
+						"select1, DimDate join(TransactionDate == Date,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join1",
+						"exists1, DimDate join(LoadDate == Date,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join2",
+						"join2 select(mapColumn(",
+						"          TransactionID,",
+						"          MerchantID,",
+						"          CardNumber,",
+						"          TransactionDate,",
+						"          AmountOG,",
+						"          AmountUSD,",
+						"          Currency,",
+						"          AuthCode,",
+						"          LoadDate,",
+						"          LoadDateKey = DateID",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select1",
+						"join1 select(mapColumn(",
+						"          TransactionID,",
+						"          MerchantID,",
+						"          CardNumber,",
+						"          TransactionDate,",
+						"          AmountOG,",
+						"          AmountUSD,",
+						"          Currency,",
+						"          AuthCode,",
+						"          LoadDate,",
+						"          LoadDateKey,",
+						"          TrnDateKey = DateID",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select2",
+						"surrogateKey1, FctMaxkey join(1 == 1,",
+						"     joinType:'cross',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join3",
+						"DWCardTransactions, CompFact exists(DWCardTransactions@TransactionID == CompFact@TransactionID,",
+						"     negate:true,",
+						"     broadcast: 'auto')~> exists1",
+						"isDeclined sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          TransactionKey as long,",
+						"          TransactionID as long,",
+						"          MerchantID as integer,",
+						"          CardNumber as string,",
+						"          TrnDateKey as integer,",
+						"          CurrencyCode as string,",
+						"          AmountUSD as decimal(18,2),",
+						"          AmountOG as integer,",
+						"          IsDeclined as boolean,",
+						"          AuthCode as integer,",
+						"          LoadDateKey as integer",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          TransactionKey = TransactionKeyinc,",
+						"          TransactionID,",
+						"          MerchantID,",
+						"          CardNumber,",
+						"          TrnDateKey,",
+						"          CurrencyCode = Currency,",
+						"          AmountUSD,",
+						"          AmountOG,",
+						"          IsDeclined,",
+						"          AuthCode,",
+						"          LoadDateKey",
+						"     )) ~> Fact"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Df_STG_CARDS_TRN_to_DIM_CURRENCY')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "STG_CARDS_TRANSACTIONS",
+								"type": "DatasetReference"
+							},
+							"name": "STG",
+							"description": "STG_CARDS_TRANSACTIONS"
+						},
+						{
+							"dataset": {
+								"referenceName": "DIM_CURRENCY",
+								"type": "DatasetReference"
+							},
+							"name": "DImcurrencyComp"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "DIM_CURRENCY",
+								"type": "DatasetReference"
+							},
+							"name": "dimcurrency",
+							"description": "DIM_CURRENCY"
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "exists1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          TransactionID as string,",
+						"          MerchantID as string,",
+						"          CardNumber as string,",
+						"          TransactionDate as string,",
+						"          Amount as string,",
+						"          Currency as string,",
+						"          AuthCode as string,",
+						"          LoadDate as date",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     waterMarkColumn: 'LoadDate',",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     query: 'SELECT DISTINCT Currency AS Currency FROM dbo.STG_CARDS_TRANSACTIONS',",
+						"     format: 'query',",
+						"     mode: 'read') ~> STG",
+						"source(output(",
+						"          CurrencyCode as string,",
+						"          CurrencyName as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     format: 'table') ~> DImcurrencyComp",
+						"exists1 derive(CurrencyName = iif(Currency == 'USD', 'US Dollar',\r",
+						"iif(Currency == 'EUR', 'Euro',\r",
+						"iif(Currency == 'JPY', 'Japanese Yen',\r",
+						"iif(Currency == 'GBP', 'British Pound',\r",
+						"iif(Currency == 'AUD', 'Australian Dollar',\r",
+						"iif(Currency == 'CAD', 'Canadian Dollar',\r",
+						"iif(Currency == 'CHF', 'Swiss Franc',\r",
+						"iif(Currency == 'CNY', 'Chinese Yuan',\r",
+						"iif(Currency == 'INR', 'Indian Rupee',\r",
+						"iif(Currency == 'BRL', 'Brazilian Real',\r",
+						"iif(Currency == 'ZAR', 'South African Rand',\r",
+						"iif(Currency == 'RUB', 'Russian Ruble',\r",
+						"iif(Currency == 'KRW', 'South Korean Won',\r",
+						"iif(Currency == 'SGD', 'Singapore Dollar',\r",
+						"iif(Currency == 'MXN', 'Mexican Peso',\r",
+						"iif(Currency == 'NZD', 'New Zealand Dollar',\r",
+						"iif(Currency == 'TRY', 'Turkish Lira',\r",
+						"iif(Currency == 'SEK', 'Swedish Krona',\r",
+						"iif(Currency == 'NOK', 'Norwegian Krone',\r",
+						"iif(Currency == 'AED', 'UAE Dirham',\r",
+						"'Unknown Currency'))))))))))))))))))))) ~> derivedColumn1",
+						"STG, DImcurrencyComp exists(Currency == CurrencyCode,",
+						"     negate:true,",
+						"     broadcast: 'auto')~> exists1",
+						"derivedColumn1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          CurrencyCode as string,",
+						"          CurrencyName as string",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          CurrencyCode = Currency,",
+						"          CurrencyName",
+						"     )) ~> dimcurrency"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Df_STG_CARDS_TRN_to_DW_CARDS_TRN')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "STG_CARDS_TRANSACTIONS",
+								"type": "DatasetReference"
+							},
+							"name": "STG"
+						},
+						{
+							"dataset": {
+								"referenceName": "DW_CARD_TRANSACTIONS",
+								"type": "DatasetReference"
+							},
+							"name": "DWComp"
+						},
+						{
+							"dataset": {
+								"referenceName": "DW_CARDS_TRANSACTIONS_REVERSALS",
+								"type": "DatasetReference"
+							},
+							"name": "DwReversals"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "DW_CARD_TRANSACTIONS",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						},
+						{
+							"dataset": {
+								"referenceName": "DW_CARDS_TRANSACTIONS_REVERSALS",
+								"type": "DatasetReference"
+							},
+							"name": "sink2"
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "cast1"
+						},
+						{
+							"name": "split1"
+						},
+						{
+							"name": "exists1"
+						},
+						{
+							"name": "exists2"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          TransactionID as string,",
+						"          MerchantID as string,",
+						"          CardNumber as string,",
+						"          TransactionDate as string,",
+						"          Amount as string,",
+						"          Currency as string,",
+						"          AuthCode as string,",
+						"          LoadDate as date",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     limit: 100,",
+						"     waterMarkColumn: 'LoadDate',",
+						"     isolationLevel: 'READ_COMMITTED',",
+						"     format: 'table',",
+						"     mode: 'read') ~> STG",
+						"source(output(",
+						"          TransactionID as long,",
+						"          MerchantID as integer,",
+						"          CardNumber as string,",
+						"          TransactionDate as date,",
+						"          AmountOG as integer,",
+						"          AmountUSD as decimal(18,2),",
+						"          Currency as string,",
+						"          AuthCode as integer,",
+						"          LoadDate as date",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     format: 'table') ~> DWComp",
+						"source(output(",
+						"          TransactionID as long,",
+						"          MerchantID as integer,",
+						"          CardNumber as string,",
+						"          TransactionDate as date,",
+						"          AmountOG as integer,",
+						"          AmountUSD as decimal(18,2),",
+						"          Currency as string,",
+						"          AuthCode as integer,",
+						"          LoadDate as date",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     format: 'table') ~> DwReversals",
+						"cast1 derive(TransactionDate = toDate(TransactionDate, 'yyyyMMdd'),",
+						"          AmountUSD = toDecimal(Amount/100,18,2),",
+						"          fAuthCode = iif(isNull(AuthCode) || (AuthCode == 0), 0,AuthCode )) ~> derivedColumn1",
+						"STG cast(output(",
+						"          TransactionID as long '000,000,000',",
+						"          MerchantID as integer '000',",
+						"          Amount as long '000,000,000',",
+						"          AuthCode as integer '000'",
+						"     ),",
+						"     errors: true) ~> cast1",
+						"derivedColumn1 split(Amount > 0,",
+						"     disjoint: false) ~> split1@(GreaterThanZero, LessThanZero)",
+						"split1@GreaterThanZero, DWComp exists(split1@GreaterThanZero@TransactionID == DWComp@TransactionID,",
+						"     negate:true,",
+						"     broadcast: 'auto')~> exists1",
+						"split1@LessThanZero, DwReversals exists(split1@LessThanZero@TransactionID == DwReversals@TransactionID,",
+						"     negate:true,",
+						"     broadcast: 'auto')~> exists2",
+						"exists1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          TransactionID as long,",
+						"          MerchantID as integer,",
+						"          CardNumber as string,",
+						"          TransactionDate as date,",
+						"          AmountOG as integer,",
+						"          AmountUSD as decimal(18,2),",
+						"          Currency as string,",
+						"          AuthCode as integer,",
+						"          LoadDate as date",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     postSQLs:['MERGE INTO dbo.SNAPSHOT_MERCHENT AS T\\nUSING (\\n(\\nSELECT \\n     MerchantID,\\n     Currency,\\n     DATENAME(MONTH, TransactionDate) AS MonthName,\\n     count(CardNumber) as TrnCount,\\n    sum(AmountUSD) as TotalAmount,\\n     CASE WHEN AuthCOde is null or AuthCOde = 0 then \\'REJECTED\\' else \\'SUCCESS\\' end AS STATUS\\nFrom [dbo].[DW_CARDS_TRANSACTIONS]\\ngroup by MerchantID,\\n     Currency,DATENAME(MONTH, TransactionDate),CASE WHEN AuthCOde is null or AuthCOde = 0 then \\'REJECTED\\' else \\'SUCCESS\\' end)\\n) AS S\\nON (T.MerchantID = S.MerchantID\\nAND T.Currency = S.Currency\\nAND T.MonthName =  S.MonthName\\nAND T.STATUS = S.STATUS)\\nWHEN MATCHED THEN\\n    UPDATE SET T.TrnCount = S.TrnCount, T.TotalAmount = S.TotalAmount\\nWHEN NOT MATCHED BY TARGET THEN\\n    INSERT (MerchantID,Currency, MonthName, TrnCount, TotalAmount, STATUS) VALUES (S.MerchantID,S.Currency, S.MonthName, S.TrnCount, S.TotalAmount, S.STATUS)\\nWHEN NOT MATCHED BY SOURCE THEN\\n    DELETE;'],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          TransactionID,",
+						"          MerchantID,",
+						"          CardNumber,",
+						"          TransactionDate,",
+						"          AmountOG = Amount,",
+						"          AmountUSD,",
+						"          Currency,",
+						"          AuthCode = fAuthCode,",
+						"          LoadDate",
+						"     )) ~> sink1",
+						"exists2 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          TransactionID as long,",
+						"          MerchantID as integer,",
+						"          CardNumber as string,",
+						"          TransactionDate as date,",
+						"          AmountOG as integer,",
+						"          AmountUSD as decimal(18,2),",
+						"          Currency as string,",
+						"          AuthCode as integer,",
+						"          LoadDate as date",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          TransactionID,",
+						"          MerchantID,",
+						"          CardNumber,",
+						"          TransactionDate,",
+						"          AmountOG = Amount,",
+						"          AmountUSD,",
+						"          Currency,",
+						"          AuthCode = fAuthCode,",
+						"          LoadDate",
+						"     )) ~> sink2"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Df_Source_To_STG_CARDS_TRANSACTIONS')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "Raw_Data_Card_transactions",
+								"type": "DatasetReference"
+							},
+							"name": "DailyCardTransactions",
+							"description": "Card Transactions"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "STG_CARDS_TRANSACTIONS",
+								"type": "DatasetReference"
+							},
+							"name": "DataSink"
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "select1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          Column_1 as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     limit: 100,",
+						"     ignoreNoFilesFound: false) ~> DailyCardTransactions",
+						"DailyCardTransactions derive({TransactionID } = substring(Column_1, 1,12),",
+						"          {MerchantID } = substring(Column_1, 13,10),",
+						"          CardNumber = substring(Column_1, 23,16),",
+						"          {TransactionDate } = substring(Column_1, 39,8),",
+						"          {Amount } = substring(Column_1, 47,10),",
+						"          {Currency } = substring(Column_1, 57,3),",
+						"          AuthCode = substring(Column_1, 60,6),",
+						"          LoadDate = currentDate()) ~> derivedColumn1",
+						"derivedColumn1 select(mapColumn(",
+						"          {TransactionID },",
+						"          {MerchantID },",
+						"          CardNumber,",
+						"          {TransactionDate },",
+						"          {Amount },",
+						"          {Currency },",
+						"          AuthCode,",
+						"          LoadDate",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select1",
+						"select1 sink(allowSchemaDrift: true,",
+						"     validateSchema: true,",
+						"     input(",
+						"          TransactionID as string,",
+						"          MerchantID as string,",
+						"          CardNumber as string,",
+						"          TransactionDate as string,",
+						"          Amount as string,",
+						"          Currency as string,",
+						"          AuthCode as string,",
+						"          LoadDate as date",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          TransactionID = {TransactionID },",
+						"          MerchantID = {MerchantID },",
+						"          CardNumber,",
+						"          TransactionDate = {TransactionDate },",
+						"          Amount = {Amount },",
+						"          Currency = {Currency },",
+						"          AuthCode,",
+						"          LoadDate",
+						"     )) ~> DataSink"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Df_expandRange')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "odExpandRange",
+								"type": "DatasetReference"
+							},
+							"name": "source1"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "destinationExpandRange",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "flatten1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          OrderID as integer,",
+						"          OrderList as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     format: 'table') ~> source1",
+						"source1 derive(OrderList = split(replace(replace(OrderList, '[',''),']',''),',')) ~> derivedColumn1",
+						"derivedColumn1 foldDown(unroll(OrderList),",
+						"     mapColumn(",
+						"          OrderID,",
+						"          OrderList",
+						"     ),",
+						"     skipDuplicateMapInputs: false,",
+						"     skipDuplicateMapOutputs: false) ~> flatten1",
+						"flatten1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     partitionFileNames:['opExpandRange.csv'],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     partitionBy('hash', 1)) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/WildCards_Source_to_STG')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "AllCSV",
+								"type": "DatasetReference"
+							},
+							"name": "source1"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "STG_CARDS_TRANSACTIONS_NEW",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "flowlet1",
+							"flowlet": {
+								"referenceName": "RawTransformation",
+								"type": "DataFlowReference",
+								"parameters": {}
+							}
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          Column_1 as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     wildcardPaths:['*.txt']) ~> source1",
+						"source1 compose(mapColumn(",
+						"          Column_1",
+						"     ),",
+						"     composition: 'RawTransformation') ~> flowlet1@(DataSink)",
+						"flowlet1@DataSink sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          TransactionID as string,",
+						"          MerchantID as string,",
+						"          CardNumber as string,",
+						"          TransactionDate as string,",
+						"          Amount as string,",
+						"          Currency as string,",
+						"          AuthCode as string,",
+						"          LoadDate as date",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError') ~> sink1"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dfFileNamesStoringCsv')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "FileNames",
+								"type": "DatasetReference"
+							},
+							"name": "source1"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "FileNames",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "flatten1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          FileNames as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false) ~> source1",
+						"source1 derive(FileNames = split(replace(replace(replace(FileNames,'[',''),']',''),'\"',''),',')) ~> derivedColumn1",
+						"derivedColumn1 foldDown(unroll(FileNames),",
+						"     mapColumn(",
+						"          FileNames",
+						"     ),",
+						"     skipDuplicateMapInputs: false,",
+						"     skipDuplicateMapOutputs: false) ~> flatten1",
+						"flatten1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     partitionFileNames:['FileNames.csv'],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     mapColumn(",
+						"          FileNames",
+						"     ),",
+						"     partitionBy('hash', 1)) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/v1Df_DW_CARDS_TRN_to_FACT_CARD_TRN')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "odDW_CARD_TRANSACTIONS",
+								"type": "DatasetReference"
+							},
+							"name": "DWCardTransactions",
+							"description": "Import data from DW_CARD_TRANSACTIONS"
+						},
+						{
+							"dataset": {
+								"referenceName": "odDIM_DATE",
+								"type": "DatasetReference"
+							},
+							"name": "DimDate"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "od_FACT_CARDS_TRANSACTIONS",
+								"type": "DatasetReference"
+							},
+							"name": "Fact"
+						}
+					],
+					"transformations": [
+						{
+							"name": "surrogateKey1"
+						},
+						{
+							"name": "isDeclined"
+						},
+						{
+							"name": "join1"
+						},
+						{
+							"name": "join2"
+						},
+						{
+							"name": "select1"
+						},
+						{
+							"name": "select2"
+						}
+					],
+					"scriptLines": [
+						"parameters{",
+						"     MaxKey as integer",
+						"}",
+						"source(output(",
+						"          TransactionID as long,",
+						"          MerchantID as integer,",
+						"          CardNumber as string,",
+						"          TransactionDate as date,",
+						"          AmountOG as integer,",
+						"          AmountUSD as decimal(18,2),",
+						"          Currency as string,",
+						"          AuthCode as integer,",
+						"          LoadDate as date",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     waterMarkColumn: 'LoadDate',",
+						"     isolationLevel: 'READ_COMMITTED',",
+						"     query: 'SELECT \\n    s.TransactionID,\\n    s.MerchantID,\\n    s.CardNumber,\\n    s.TransactionDate,\\n    s.AmountOG,\\n    s.AmountUSD,\\n    s.Currency,\\n    s.AuthCode,\\n    s.LoadDate\\nFROM OD.DW_CARDS_TRANSACTIONS s\\nLEFT JOIN OD.FACT_CARDS_TRANSACTIONS t \\n    ON s.TransactionID = t.TransactionID\\nWHERE t.TransactionID IS NULL',",
+						"     format: 'query',",
+						"     mode: 'read') ~> DWCardTransactions",
+						"source(output(",
+						"          DateID as integer,",
+						"          Date as date,",
+						"          Month as integer,",
+						"          Day as string,",
+						"          DayNum as integer,",
+						"          WeekNo as integer,",
+						"          Year as integer",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     format: 'table') ~> DimDate",
+						"select2 keyGenerate(output(TransactionKey as long),",
+						"     startAt: 1L,",
+						"     stepValue: 1L) ~> surrogateKey1",
+						"surrogateKey1 derive(IsDeclined = iif(isNull(AuthCode) || AuthCode == 0, 1, 0),",
+						"          TransactionKeyInc = TransactionKey+$MaxKey) ~> isDeclined",
+						"select1, DimDate join(TransactionDate == Date,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join1",
+						"DWCardTransactions, DimDate join(LoadDate == Date,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join2",
+						"join2 select(mapColumn(",
+						"          TransactionID,",
+						"          MerchantID,",
+						"          CardNumber,",
+						"          TransactionDate,",
+						"          AmountOG,",
+						"          AmountUSD,",
+						"          Currency,",
+						"          AuthCode,",
+						"          LoadDate,",
+						"          LoadDateKey = DateID",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select1",
+						"join1 select(mapColumn(",
+						"          TransactionID,",
+						"          MerchantID,",
+						"          CardNumber,",
+						"          TransactionDate,",
+						"          AmountOG,",
+						"          AmountUSD,",
+						"          Currency,",
+						"          AuthCode,",
+						"          LoadDate,",
+						"          LoadDateKey,",
+						"          TrnDateKey = DateID",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select2",
+						"isDeclined sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          TransactionKey as long,",
+						"          TransactionID as long,",
+						"          MerchantID as integer,",
+						"          CardNumber as string,",
+						"          TrnDateKey as integer,",
+						"          CurrencyCode as string,",
+						"          AmountUSD as decimal(18,2),",
+						"          AmountOG as integer,",
+						"          IsDeclined as boolean,",
+						"          AuthCode as integer,",
+						"          LoadDateKey as integer",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          TransactionKey = TransactionKeyInc,",
+						"          TransactionID,",
+						"          MerchantID,",
+						"          CardNumber,",
+						"          TrnDateKey,",
+						"          CurrencyCode = Currency,",
+						"          AmountUSD,",
+						"          AmountOG,",
+						"          IsDeclined,",
+						"          AuthCode,",
+						"          LoadDateKey",
+						"     )) ~> Fact"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/v1Df_STG_CARDS_TRN_to_DIM_CURRENCY')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "odSTG_CARDS_TRANSACTIONS",
+								"type": "DatasetReference"
+							},
+							"name": "STG",
+							"description": "STG_CARDS_TRANSACTIONS"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "odDIM_CURRENCY",
+								"type": "DatasetReference"
+							},
+							"name": "dimcurrency",
+							"description": "DIM_CURRENCY"
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "select1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          TransactionID as string,",
+						"          MerchantID as string,",
+						"          CardNumber as string,",
+						"          TransactionDate as string,",
+						"          Amount as string,",
+						"          Currency as string,",
+						"          AuthCode as string,",
+						"          LoadDate as date",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     waterMarkColumn: 'LoadDate',",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     query: 'SELECT \\r\\nDISTINCT S.Currency,\\r\\nT.CurrencyCode\\r\\nFROM OD.STG_CARDS_TRANSACTIONS S\\r\\nLeft Join OD.DIM_CURRENCY T\\r\\nON S.Currency = T.CurrencyCode\\r\\nwhere T.CurrencyCode is null',",
+						"     format: 'query',",
+						"     mode: 'read') ~> STG",
+						"select1 derive(CurrencyName = iif(Currency == 'USD', 'US Dollar',\r",
+						"iif(Currency == 'EUR', 'Euro',\r",
+						"iif(Currency == 'JPY', 'Japanese Yen',\r",
+						"iif(Currency == 'GBP', 'British Pound',\r",
+						"iif(Currency == 'AUD', 'Australian Dollar',\r",
+						"iif(Currency == 'CAD', 'Canadian Dollar',\r",
+						"iif(Currency == 'CHF', 'Swiss Franc',\r",
+						"iif(Currency == 'CNY', 'Chinese Yuan',\r",
+						"iif(Currency == 'INR', 'Indian Rupee',\r",
+						"iif(Currency == 'BRL', 'Brazilian Real',\r",
+						"iif(Currency == 'ZAR', 'South African Rand',\r",
+						"iif(Currency == 'RUB', 'Russian Ruble',\r",
+						"iif(Currency == 'KRW', 'South Korean Won',\r",
+						"iif(Currency == 'SGD', 'Singapore Dollar',\r",
+						"iif(Currency == 'MXN', 'Mexican Peso',\r",
+						"iif(Currency == 'NZD', 'New Zealand Dollar',\r",
+						"iif(Currency == 'TRY', 'Turkish Lira',\r",
+						"iif(Currency == 'SEK', 'Swedish Krona',\r",
+						"iif(Currency == 'NOK', 'Norwegian Krone',\r",
+						"iif(Currency == 'AED', 'UAE Dirham',\r",
+						"'Unknown Currency'))))))))))))))))))))) ~> derivedColumn1",
+						"STG select(mapColumn(",
+						"          Currency",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select1",
+						"derivedColumn1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          CurrencyCode as string,",
+						"          CurrencyName as string",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          CurrencyCode = Currency,",
+						"          CurrencyName",
+						"     )) ~> dimcurrency"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/v1Df_STG_CARDS_TRN_to_DW_CARDS_TRN')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "odSTG_CARDS_TRANSACTIONS",
+								"type": "DatasetReference"
+							},
+							"name": "STG"
+						},
+						{
+							"dataset": {
+								"referenceName": "odDW_CARD_TRANSACTIONS",
+								"type": "DatasetReference"
+							},
+							"name": "DWComp"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "odDW_CARD_TRANSACTIONS",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "cast1"
+						},
+						{
+							"name": "filter1"
+						},
+						{
+							"name": "exists1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          TransactionID as string,",
+						"          MerchantID as string,",
+						"          CardNumber as string,",
+						"          TransactionDate as string,",
+						"          Amount as string,",
+						"          Currency as string,",
+						"          AuthCode as string,",
+						"          LoadDate as date",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     limit: 100,",
+						"     waterMarkColumn: 'LoadDate',",
+						"     isolationLevel: 'READ_COMMITTED',",
+						"     format: 'table',",
+						"     mode: 'read') ~> STG",
+						"source(output(",
+						"          TransactionID as long,",
+						"          MerchantID as integer,",
+						"          CardNumber as string,",
+						"          TransactionDate as date,",
+						"          AmountOG as integer,",
+						"          AmountUSD as decimal(18,2),",
+						"          Currency as string,",
+						"          AuthCode as integer,",
+						"          LoadDate as date",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     format: 'table') ~> DWComp",
+						"cast1 derive(TransactionDate = toDate(TransactionDate, 'yyyyMMdd'),",
+						"          AmountUSD = toDecimal(Amount/100,18,2),",
+						"          fAuthCode = iif(isNull(AuthCode) || (AuthCode == 0), 0,AuthCode )) ~> derivedColumn1",
+						"STG cast(output(",
+						"          TransactionID as long '000,000,000',",
+						"          MerchantID as integer '000',",
+						"          Amount as long '000,000,000',",
+						"          AuthCode as integer '000'",
+						"     ),",
+						"     errors: true) ~> cast1",
+						"derivedColumn1 filter(Amount > 0) ~> filter1",
+						"filter1, DWComp exists(cast1@TransactionID == DWComp@TransactionID,",
+						"     negate:true,",
+						"     broadcast: 'auto')~> exists1",
+						"exists1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          TransactionID as long,",
+						"          MerchantID as integer,",
+						"          CardNumber as string,",
+						"          TransactionDate as date,",
+						"          AmountOG as integer,",
+						"          AmountUSD as decimal(18,2),",
+						"          Currency as string,",
+						"          AuthCode as integer,",
+						"          LoadDate as date",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     postSQLs:['MERGE INTO OD.SNAPSHOT_MERCHENT AS T\\nUSING (\\n(\\nSELECT \\n     MerchantID,\\n     Currency,\\n     DATENAME(MONTH, TransactionDate) AS MonthName,\\n     count(CardNumber) as TrnCount,\\n    sum(AmountUSD) as TotalAmount,\\n     CASE WHEN AuthCOde is null or AuthCOde = 0 then \\'REJECTED\\' else \\'SUCCESS\\' end AS STATUS\\nFrom [OD].[DW_CARDS_TRANSACTIONS]\\ngroup by MerchantID,\\n     Currency,DATENAME(MONTH, TransactionDate),CASE WHEN AuthCOde is null or AuthCOde = 0 then \\'REJECTED\\' else \\'SUCCESS\\' end)\\n) AS S\\nON (T.MerchantID = S.MerchantID\\nAND T.Currency = S.Currency\\nAND T.MonthName =  S.MonthName\\nAND T.STATUS = S.STATUS)\\nWHEN MATCHED THEN\\n    UPDATE SET T.TrnCount = S.TrnCount, T.TotalAmount = S.TotalAmount\\nWHEN NOT MATCHED BY TARGET THEN\\n    INSERT (MerchantID,Currency, MonthName, TrnCount, TotalAmount, STATUS) VALUES (S.MerchantID,S.Currency, S.MonthName, S.TrnCount, S.TotalAmount, S.STATUS)\\nWHEN NOT MATCHED BY SOURCE THEN\\n    DELETE;'],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          TransactionID,",
+						"          MerchantID,",
+						"          CardNumber,",
+						"          TransactionDate,",
+						"          AmountOG = Amount,",
+						"          AmountUSD,",
+						"          Currency,",
+						"          AuthCode = fAuthCode,",
+						"          LoadDate",
+						"     )) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/v1Df_Source_To_STG_CARDS_TRANSACTIONS')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "Raw_Data_Card_transactions",
+								"type": "DatasetReference"
+							},
+							"name": "DailyCardTransactions",
+							"description": "Card Transactions"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "odSTG_CARDS_TRANSACTIONS",
+								"type": "DatasetReference"
+							},
+							"name": "DataSink"
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "select1"
+						}
+					],
+					"scriptLines": [
+						"parameters{",
+						"     TranIDStrt as integer (0),",
+						"     TranIDEnd as integer (0),",
+						"     MerIDStrt as integer (0),",
+						"     MerIDEnd as integer (0),",
+						"     CardNumStrt as integer (0),",
+						"     CardNumEnd as integer (0),",
+						"     TrnDateStrt as integer (0),",
+						"     TrnDateEnd as integer (0),",
+						"     AmtStrt as integer (0),",
+						"     AmtEnd as integer (0),",
+						"     CurrStrt as integer (0),",
+						"     CurrEnd as integer (0),",
+						"     AuthCStrt as integer (0),",
+						"     AuthCEnd as integer (0)",
+						"}",
+						"source(output(",
+						"          Column_1 as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     limit: 100,",
+						"     ignoreNoFilesFound: false) ~> DailyCardTransactions",
+						"DailyCardTransactions derive({TransactionID } = substring(Column_1, $TranIDStrt,$TranIDEnd),",
+						"          {MerchantID } = substring(Column_1, $MerIDStrt,$MerIDEnd),",
+						"          CardNumber = substring(Column_1, $CardNumStrt,$CardNumEnd),",
+						"          {TransactionDate } = substring(Column_1, $TrnDateStrt,$TrnDateEnd),",
+						"          {Amount } = substring(Column_1, $AmtStrt,$AmtEnd),",
+						"          {Currency } = substring(Column_1, $CurrStrt,$CurrEnd),",
+						"          AuthCode = substring(Column_1, $AuthCStrt,$AuthCEnd),",
+						"          LoadDate = currentDate()) ~> derivedColumn1",
+						"derivedColumn1 select(mapColumn(",
+						"          {TransactionID },",
+						"          {MerchantID },",
+						"          CardNumber,",
+						"          {TransactionDate },",
+						"          {Amount },",
+						"          {Currency },",
+						"          AuthCode,",
+						"          LoadDate",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select1",
+						"select1 sink(allowSchemaDrift: true,",
+						"     validateSchema: true,",
+						"     input(",
+						"          TransactionID as string,",
+						"          MerchantID as string,",
+						"          CardNumber as string,",
+						"          TransactionDate as string,",
+						"          Amount as string,",
+						"          Currency as string,",
+						"          AuthCode as string,",
+						"          LoadDate as date",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     saveOrder: 1,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          TransactionID = {TransactionID },",
+						"          MerchantID = {MerchantID },",
+						"          CardNumber,",
+						"          TransactionDate = {TransactionDate },",
+						"          Amount = {Amount },",
+						"          Currency = {Currency },",
+						"          AuthCode,",
+						"          LoadDate",
+						"     )) ~> DataSink"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/v1ParamDf_Source_To_STG_CARDS_TRANSACTIONS')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "Raw_Data_Card_transactions",
+								"type": "DatasetReference"
+							},
+							"name": "DailyCardTransactions",
+							"description": "Card Transactions"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "odStgTrnNew",
+								"type": "DatasetReference"
+							},
+							"name": "DataSink"
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "select1"
+						}
+					],
+					"scriptLines": [
+						"parameters{",
+						"     TranIDStrt as integer (0),",
+						"     TranIDEnd as integer (0),",
+						"     MerIDStrt as integer (0),",
+						"     MerIDEnd as integer (0),",
+						"     CardNumStrt as integer (0),",
+						"     CardNumEnd as integer (0),",
+						"     TrnDateStrt as integer (0),",
+						"     TrnDateEnd as integer (0),",
+						"     AmtStrt as integer (0),",
+						"     AmtEnd as integer (0),",
+						"     CurrStrt as integer (0),",
+						"     CurrEnd as integer (0),",
+						"     AuthCStrt as integer (0),",
+						"     AuthCEnd as integer (0)",
+						"}",
+						"source(output(",
+						"          Column_1 as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     limit: 100,",
+						"     ignoreNoFilesFound: false) ~> DailyCardTransactions",
+						"DailyCardTransactions derive({TransactionID } = substring(Column_1, $TranIDStrt,$TranIDEnd),",
+						"          {MerchantID } = substring(Column_1, $MerIDStrt,$MerIDEnd),",
+						"          CardNumber = substring(Column_1, $CardNumStrt,$CardNumEnd),",
+						"          {TransactionDate } = substring(Column_1, $TrnDateStrt,$TrnDateEnd),",
+						"          {Amount } = substring(Column_1, $AmtStrt,$AmtEnd),",
+						"          {Currency } = substring(Column_1, $CurrStrt,$CurrEnd),",
+						"          AuthCode = substring(Column_1, $AuthCStrt,$AuthCEnd),",
+						"          LoadDate = currentDate()) ~> derivedColumn1",
+						"derivedColumn1 select(mapColumn(",
+						"          {TransactionID },",
+						"          {MerchantID },",
+						"          CardNumber,",
+						"          {TransactionDate },",
+						"          {Amount },",
+						"          {Currency },",
+						"          AuthCode,",
+						"          LoadDate",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select1",
+						"select1 sink(allowSchemaDrift: true,",
+						"     validateSchema: true,",
+						"     input(",
+						"          TransactionID as string,",
+						"          MerchantID as string,",
+						"          CardNumber as string,",
+						"          TransactionDate as string,",
+						"          Amount as string,",
+						"          Currency as string,",
+						"          AuthCode as string,",
+						"          LoadDate as date",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     saveOrder: 1,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          TransactionID = {TransactionID },",
+						"          MerchantID = {MerchantID },",
+						"          CardNumber,",
+						"          TransactionDate = {TransactionDate },",
+						"          Amount = {Amount },",
+						"          Currency = {Currency },",
+						"          AuthCode,",
+						"          LoadDate",
+						"     )) ~> DataSink"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/FACT_CARDS_TRANSACTION')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "v1Df_DW_CARDS_TRN_to_FACT_CARD_TRN",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [
+							{
+								"activity": "Script1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "v1Df_DW_CARDS_TRN_to_FACT_CARD_TRN",
+								"type": "DataFlowReference",
+								"parameters": {
+									"MaxKey": {
+										"value": "@activity('Script1').output.resultSets[0].rows[0].TransactionKey",
+										"type": "Expression"
+									}
+								},
+								"datasetParameters": {
+									"DWCardTransactions": {},
+									"DimDate": {},
+									"Fact": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					},
+					{
+						"name": "Script1",
+						"type": "Script",
+						"dependsOn": [
+							{
+								"activity": "StartTime",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "AzureSqlDatabase",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"type": "Query",
+									"text": "SELECT isnull(MAX(TransactionKey),1000000000) AS TransactionKey from OD.FACT_CARDS_TRANSACTIONS"
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00"
+						}
+					},
+					{
+						"name": "StartTime",
+						"type": "SetVariable",
+						"dependsOn": [],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "StartTime",
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "EndTime",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "v1Df_DW_CARDS_TRN_to_FACT_CARD_TRN",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "EndTime",
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "PiplineExecutionStatus",
+						"type": "Script",
+						"dependsOn": [
+							{
+								"activity": "EndTime",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "AzureSqlDatabase",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"type": "NonQuery",
+									"text": {
+										"value": "insert into PipelineRunStatus values('@{pipeline().Pipeline}','@{pipeline().RunId}','@{formatDateTime(pipeline().TriggerTime,'yyyy-MM-dd HH:mm:ss')}','@{pipeline().TriggerType}',datediff(second,'@{variables('StartTime')}','@{variables('EndTime')}'),datediff(minute,'@{variables('StartTime')}','@{variables('EndTime')}'))",
+										"type": "Expression"
+									}
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"StartTime": {
+						"type": "String"
+					},
+					"EndTime": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-12-11T06:23:24Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/v1Df_DW_CARDS_TRN_to_FACT_CARD_TRN')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/FixedFileToSTG')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "FixedFileToSTG",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [
+							{
+								"activity": "Script1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "v1Df_Source_To_STG_CARDS_TRANSACTIONS",
+								"type": "DataFlowReference",
+								"parameters": {
+									"TranIDStrt": {
+										"value": "@activity('Script1').output.resultSets[0].rows[0].Strt_Len",
+										"type": "Expression"
+									},
+									"TranIDEnd": {
+										"value": "@activity('Script1').output.resultSets[0].rows[0].End_Len",
+										"type": "Expression"
+									},
+									"MerIDStrt": {
+										"value": "@activity('Script1').output.resultSets[1].rows[0].Strt_Len",
+										"type": "Expression"
+									},
+									"MerIDEnd": {
+										"value": "@activity('Script1').output.resultSets[1].rows[0].End_Len",
+										"type": "Expression"
+									},
+									"CardNumStrt": {
+										"value": "@activity('Script1').output.resultSets[2].rows[0].Strt_Len",
+										"type": "Expression"
+									},
+									"CardNumEnd": {
+										"value": "@activity('Script1').output.resultSets[2].rows[0].End_Len",
+										"type": "Expression"
+									},
+									"TrnDateStrt": {
+										"value": "@activity('Script1').output.resultSets[3].rows[0].Strt_Len",
+										"type": "Expression"
+									},
+									"TrnDateEnd": {
+										"value": "@activity('Script1').output.resultSets[3].rows[0].End_Len",
+										"type": "Expression"
+									},
+									"AmtStrt": {
+										"value": "@activity('Script1').output.resultSets[4].rows[0].Strt_Len",
+										"type": "Expression"
+									},
+									"AmtEnd": {
+										"value": "@activity('Script1').output.resultSets[4].rows[0].End_Len",
+										"type": "Expression"
+									},
+									"CurrStrt": {
+										"value": "@activity('Script1').output.resultSets[5].rows[0].Strt_Len",
+										"type": "Expression"
+									},
+									"CurrEnd": {
+										"value": "@activity('Script1').output.resultSets[5].rows[0].End_Len",
+										"type": "Expression"
+									},
+									"AuthCStrt": {
+										"value": "@activity('Script1').output.resultSets[6].rows[0].Strt_Len",
+										"type": "Expression"
+									},
+									"AuthCEnd": {
+										"value": "@activity('Script1').output.resultSets[6].rows[0].End_Len",
+										"type": "Expression"
+									}
+								},
+								"datasetParameters": {
+									"DailyCardTransactions": {},
+									"DataSink": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					},
+					{
+						"name": "Script1",
+						"type": "Script",
+						"dependsOn": [
+							{
+								"activity": "StartTime",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "AzureSqlDatabase",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"type": "Query",
+									"text": "select * from OD.LEN_STG_CONTROL where Column_name = 'TransactionID'"
+								},
+								{
+									"type": "Query",
+									"text": "select * from OD.LEN_STG_CONTROL where Column_name = 'MerchantID '"
+								},
+								{
+									"type": "Query",
+									"text": "select * from OD.LEN_STG_CONTROL where Column_name = 'CardNumber'"
+								},
+								{
+									"type": "Query",
+									"text": "select * from OD.LEN_STG_CONTROL where Column_name = 'TransactionDate'"
+								},
+								{
+									"type": "Query",
+									"text": "select * from OD.LEN_STG_CONTROL where Column_name = 'Amount'"
+								},
+								{
+									"type": "Query",
+									"text": "select * from OD.LEN_STG_CONTROL where Column_name = 'Currency'"
+								},
+								{
+									"type": "Query",
+									"text": "select * from OD.LEN_STG_CONTROL where Column_name = 'AuthCode'"
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00"
+						}
+					},
+					{
+						"name": "StartTime",
+						"type": "SetVariable",
+						"dependsOn": [],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "StartTime",
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "EndTime",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "FixedFileToSTG",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "EndTime",
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "PiplineExecutionStatus",
+						"type": "Script",
+						"dependsOn": [
+							{
+								"activity": "EndTime",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "AzureSqlDatabase",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"type": "NonQuery",
+									"text": {
+										"value": "insert into PipelineRunStatus values('@{pipeline().Pipeline}','@{pipeline().RunId}','@{formatDateTime(pipeline().TriggerTime,'yyyy-MM-dd HH:mm:ss')}','@{pipeline().TriggerType}',datediff(second,'@{variables('StartTime')}','@{variables('EndTime')}'),datediff(minute,'@{variables('StartTime')}','@{variables('EndTime')}'))",
+										"type": "Expression"
+									}
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"StartTime": {
+						"type": "String"
+					},
+					"EndTime": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-12-11T06:23:25Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/v1Df_Source_To_STG_CARDS_TRANSACTIONS')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PIP_DW_CARDS_TRN_to_FACT_CARDS_TRN')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "FACT_CARD_TRANSACTIONS",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [
+							{
+								"activity": "StartTime",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Df_DW_CARDS_TRN_to_FACT_CARD_TRN",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"DWCardTransactions": {},
+									"DimDate": {},
+									"FctMaxkey": {},
+									"CompFact": {},
+									"Fact": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine",
+							"continuationSettings": {
+								"customizedCheckpointKey": "3b77a9fd-c701-4bfa-8f38-4db62afe8dc1"
+							}
+						}
+					},
+					{
+						"name": "StartTime",
+						"type": "SetVariable",
+						"dependsOn": [],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "StartTime",
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "EndTime",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "FACT_CARD_TRANSACTIONS",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "EndTime",
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "PiplineExecutionStatus",
+						"type": "Script",
+						"dependsOn": [
+							{
+								"activity": "EndTime",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "AzureSqlDatabase",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"type": "NonQuery",
+									"text": {
+										"value": "insert into PipelineRunStatus values('@{pipeline().Pipeline}','@{pipeline().RunId}','@{formatDateTime(pipeline().TriggerTime,'yyyy-MM-dd HH:mm:ss')}','@{pipeline().TriggerType}',datediff(second,'@{variables('StartTime')}','@{variables('EndTime')}'))",
+										"type": "Expression"
+									}
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"StartTime": {
+						"type": "String"
+					},
+					"EndTime": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-12-11T06:23:25Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/Df_DW_CARDS_TRN_to_FACT_CARD_TRN')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PIP_STG_CARDS_TRN_to_DIM_CURRENCY')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Df_DIM_CURRENCY",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [
+							{
+								"activity": "StartTime",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Df_STG_CARDS_TRN_to_DIM_CURRENCY",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"STG": {},
+									"DImcurrencyComp": {},
+									"dimcurrency": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine",
+							"continuationSettings": {
+								"customizedCheckpointKey": "bb7e9ab8-b345-4681-9a8d-350ef40682d2"
+							}
+						}
+					},
+					{
+						"name": "StartTime",
+						"type": "SetVariable",
+						"dependsOn": [],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "StartTime",
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "EndTime",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "Df_DIM_CURRENCY",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "EndTime",
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "PipelineExecutionStatus",
+						"type": "Script",
+						"dependsOn": [
+							{
+								"activity": "EndTime",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "AzureSqlDatabase",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"type": "NonQuery",
+									"text": {
+										"value": "insert into PipelineRunStatus values('@{pipeline().Pipeline}','@{pipeline().RunId}','@{formatDateTime(pipeline().TriggerTime,'yyyy-MM-dd HH:mm:ss')}','@{pipeline().TriggerType}',datediff(second,'@{variables('StartTime')}','@{variables('EndTime')}'))",
+										"type": "Expression"
+									}
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"StartTime": {
+						"type": "String"
+					},
+					"EndTime": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-12-11T06:23:24Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/Df_STG_CARDS_TRN_to_DIM_CURRENCY')]"
+			]
+		}
+	]
+}
